@@ -1,15 +1,16 @@
 import axios from 'axios';
-import dotenv from 'dotenv';
 import { jwtDecode } from 'jwt-decode';
 import TokenService from '../token';
-dotenv.config();
-axios.defaults.baseURL = process.env.REACT_APP_SERVER_DOMAIN;
 
 interface ResponseMessage {
   err?: string;
   message?: string;
   data?: any;
   e?: any;
+}
+
+interface AuthResponseMessage {
+  message: string;
 }
 
 interface LoginResponse {
@@ -32,7 +33,7 @@ interface OTPResponse {
 
 interface Credentials {
   email?: string;
-  username: string;
+  username?: string;
   password?: string;
   otp?: string;
   newPassword?: string;
@@ -62,7 +63,7 @@ export const getUsername = async (): Promise<Record<string, unknown>> => {
   return decodedToken;
 };
 
-export const authenticate = async (username: string): Promise<ResponseMessage> => {
+export const authenticate = async (username: string): Promise<AuthResponseMessage> => {
   try {
     const { status } = await axios.post('/api/authenticate', { username });
 
@@ -70,17 +71,17 @@ export const authenticate = async (username: string): Promise<ResponseMessage> =
       throw new Error('Username not Found');
     }
     return Promise.resolve({ message: 'Username found successfully.' });
-  } catch (error) {
-    return Promise.reject({ error });
+  } catch (error: any) {
+    return Promise.reject({ message: error?.response?.data?.message || 'An expected error' });
   }
 };
 
 export const register = async (credentials: Credentials): Promise<ResponseMessage> => {
   try {
-    const { status } = await axios.post('api/register', credentials);
+    const { status } = await axios.post('/api/register', credentials);
 
     if (status === 201) {
-      let message = 'Regsitered Successfully!';
+      const message = 'Registered Successfully!';
       const mailData = {
         username: credentials.username,
         userEmail: credentials.email,
@@ -88,13 +89,12 @@ export const register = async (credentials: Credentials): Promise<ResponseMessag
         mailType: 'registerMail',
       };
       await axios.post('/api/send-mail', mailData);
-
       return Promise.resolve({ message });
     } else {
       throw new Error('Registration Failed...!');
     }
   } catch (err: any) {
-    let message = err?.response?.data?.error || 'An error occured';
+    const message = err?.response?.data?.error;
     return Promise.reject({ err, message });
   }
 };
@@ -110,10 +110,10 @@ export const login = async (credentials: Credentials): Promise<LoginResponse> =>
 
 export const getUser = async ({ username }: { username: string }): Promise<User | GetUserError> => {
   try {
-    let { data } = await axios.get(`/api/user/${username}`);
+    const { data } = await axios.get(`/api/user/${username}`);
     return data;
   } catch (e: any) {
-    return { error: "Couldn't fetch the user data", e };
+    return { error: 'Couldnt fetch the user data', e };
   }
 };
 
@@ -131,20 +131,20 @@ export const updateUser = async (credentials: Credentials): Promise<ResponseMess
 
     return Promise.resolve({ data });
   } catch (err: any) {
-    let message = err?.response?.data?.error || 'Update failed';
+    const message = err?.response?.data?.error || 'Update failed';
     return Promise.reject({ err, message });
   }
 };
 
 export const generateOTP = async (username: string): Promise<string | ResponseMessage> => {
   try {
-    let { data, status }: { data: OTPResponse; status: number } = await axios.get(
-      `/api/generate-otp`,
+    const { data, status }: { data: OTPResponse; status: number } = await axios.get(
+      '/api/generate-otp',
       { params: { username } },
     );
 
     if (status === 201) {
-      let { email } = (await getUser({ username })) as { email: string };
+      const { email } = (await getUser({ username })) as { email: string };
       const mailData: MailData = {
         username: username,
         userEmail: email,
@@ -157,7 +157,7 @@ export const generateOTP = async (username: string): Promise<string | ResponseMe
 
     return Promise.resolve(data?.OTP);
   } catch (e) {
-    return Promise.reject({ error: "Couldn't generate OTP...!", e });
+    return Promise.reject({ error: 'Couldnt generate OTP...!', e });
   }
 };
 
